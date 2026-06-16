@@ -30,6 +30,7 @@ npm run dist:win
 在 macOS 上构建 Windows 安装包通常还需要 Wine；如果本机环境缺失，请在 Windows 或 CI 里执行 `npm run dist:win`。
 
 Windows 包会从 `vendor/mpv/win-x64/mpv.exe` 读取内置播放器，并通过 `extraResources` 打进安装包。
+如果从 GitHub 克隆后打包 Windows 版，请先执行 `git lfs pull`，并确认 `vendor/mpv/win-x64/mpv.exe` 不是几百字节的 LFS 指针文件。
 
 ## 架构
 

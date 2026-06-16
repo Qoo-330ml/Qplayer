@@ -154,8 +154,12 @@ async function openItem(item, pushHistory = true) {
 
   if (!isPlayable) return;
   setStatus(`正在调用 mpv：${item.Name}`);
-  await window.qplayer.play(item);
-  setStatus('已发送到播放器');
+  const result = await window.qplayer.play(item);
+  if (result.mode === 'system') {
+    setStatus(result.message ? `${result.message}，已用系统打开视频流` : 'mpv 启动失败，已用系统打开视频流');
+    return;
+  }
+  setStatus('已发送到 mpv');
 }
 
 function createCard(item, variant = 'poster') {

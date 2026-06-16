@@ -59,10 +59,10 @@ async function responseError(response) {
   }
 }
 
-async function fileExists(filePath) {
+async function validBundledMpv(filePath) {
   try {
-    await fs.access(filePath);
-    return true;
+    const stats = await fs.stat(filePath);
+    return stats.size > 1024 * 1024;
   } catch {
     return false;
   }
@@ -85,8 +85,8 @@ async function bundledMpvPath() {
   const packagedPath = path.join(process.resourcesPath, 'mpv', current.dir, current.executable);
   const devPath = path.join(__dirname, '..', 'vendor', 'mpv', current.dir, current.executable);
 
-  if (app.isPackaged && await fileExists(packagedPath)) return packagedPath;
-  if (await fileExists(devPath)) return devPath;
+  if (app.isPackaged && await validBundledMpv(packagedPath)) return packagedPath;
+  if (await validBundledMpv(devPath)) return devPath;
   return '';
 }
 
@@ -278,19 +278,43 @@ ipcMain.handle('player:play', async (_event, item) => {
   ];
 
   return new Promise((resolve) => {
+    let settled = false;
+    let launchTimer;
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(launchTimer);
+      resolve(result);
+    };
+    const fallbackToSystem = async (message) => {
+      if (settled) return;
+      try {
+        await Promise.race([
+          shell.openExternal(streamUrl),
+          new Promise((resolveTimeout) => setTimeout(resolveTimeout, 2000))
+        ]);
+      } catch {
+      }
+      settle({ mode: 'system', streamUrl, playerPath, message });
+    };
     const player = spawn(playerPath, args, {
       detached: true,
       stdio: 'ignore'
     });
 
     player.once('spawn', () => {
-      player.unref();
-      resolve({ mode: 'mpv', streamUrl });
+      launchTimer = setTimeout(() => {
+        player.unref();
+        settle({ mode: 'mpv', streamUrl, playerPath });
+      }, 1500);
     });
 
-    player.once('error', async () => {
-      await shell.openExternal(streamUrl);
-      resolve({ mode: 'system', streamUrl });
+    player.once('exit', (code) => {
+      fallbackToSystem(`mpv 过早退出：${code ?? 'unknown'}`);
+    });
+
+    player.once('error', (error) => {
+      fallbackToSystem(error?.message || 'mpv 启动失败');
     });
   });
 });

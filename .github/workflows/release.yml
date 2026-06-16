@@ -40,6 +40,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -49,6 +51,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify bundled Windows mpv
+        if: matrix.platform.name == 'Windows'
+        shell: pwsh
+        run: |
+          $mpv = Get-Item vendor/mpv/win-x64/mpv.exe
+          if ($mpv.Length -lt 100MB) {
+            throw "Bundled mpv.exe is too small. Git LFS files were not pulled."
+          }
 
       - name: Build package
         run: ${{ matrix.platform.command }}
