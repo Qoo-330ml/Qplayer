@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Qplayer</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <div class="window-row">
+          <button id="backButton" class="icon-button" type="button" disabled aria-label="返回">‹</button>
+          <strong>Qplayer</strong>
+        </div>
+
+        <nav class="nav-list" aria-label="主导航">
+          <button class="nav-item active" type="button" data-target="home">首页</button>
+        </nav>
+
+        <section class="server-panel" aria-label="服务器">
+          <div class="sidebar-heading">
+            <span>服务器</span>
+            <button id="settingsButton" class="icon-button" type="button" aria-label="设置">设置</button>
+          </div>
+          <button id="serverCard" class="server-card" type="button">
+            <span class="server-mark">Q</span>
+            <span>
+              <strong id="serverName">未连接服务器</strong>
+              <small id="serverMeta">点击添加服务器</small>
+            </span>
+          </button>
+        </section>
+
+        <div class="sidebar-footer">
+          <button id="addServerButton" class="nav-item" type="button">添加服务器</button>
+          <button id="footerSettingsButton" class="nav-item" type="button">设置</button>
+        </div>
+      </aside>
+
+      <section class="content">
+        <header class="topbar">
+          <h2 id="currentTitle">媒体库</h2>
+          <label class="search-box" aria-label="搜索">
+            <span>搜索</span>
+            <input id="searchInput" type="search" placeholder="搜索" />
+          </label>
+          <div class="topbar-actions">
+            <button id="refreshButton" type="button">刷新</button>
+          </div>
+        </header>
+
+        <p id="status" class="status">未连接</p>
+        <div id="homeView" class="home-view"></div>
+        <div id="items" class="item-grid" hidden></div>
+      </section>
+    </main>
+
+    <div id="settingsOverlay" class="modal-overlay" hidden>
+      <form id="loginForm" class="server-modal">
+        <h2>添加服务器</h2>
+        <label>
+          <span>显示名称</span>
+          <input id="displayName" placeholder="选填（自动获取）" />
+        </label>
+        <label>
+          <span>服务器地址</span>
+          <input id="serverUrl" type="url" placeholder="例：http://localhost:8096" required />
+        </label>
+        <label>
+          <span>用户名</span>
+          <input id="username" autocomplete="username" placeholder="必填" required />
+        </label>
+        <label>
+          <span>密码</span>
+          <input id="password" type="password" autocomplete="current-password" placeholder="选填" />
+        </label>
+        <label>
+          <span>mpv 路径</span>
+          <input id="playerPath" placeholder="mpv" />
+        </label>
+        <div class="modal-actions">
+          <button id="cancelSettingsButton" class="secondary-button" type="button">取消</button>
+          <button type="submit">登录</button>
+        </div>
+      </form>
+    </div>
+
+    <template id="itemTemplate">
+      <article class="media-card">
+        <div class="poster"></div>
+        <div class="media-body">
+          <h3></h3>
+          <p></p>
+          <button type="button">播放</button>
+        </div>
+      </article>
+    </template>
+
+    <template id="sectionTemplate">
+      <section class="media-section">
+        <h3></h3>
+        <div class="rail"></div>
+      </section>
+    </template>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
