@@ -514,6 +514,10 @@ input:focus {
   font-size: 14px;
 }
 
+.section-empty {
+  padding: 2px 0 8px 2px;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

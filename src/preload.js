@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('qplayer', {
   login: (credentials) => ipcRenderer.invoke('emby:login', credentials),
   getHome: () => ipcRenderer.invoke('emby:home'),
   getResume: () => ipcRenderer.invoke('emby:resume'),
+  getRecent: () => ipcRenderer.invoke('emby:recent'),
   getLatest: (library) => ipcRenderer.invoke('emby:latest', library),
   getLibraries: () => ipcRenderer.invoke('emby:libraries'),
   getItems: (parentId) => ipcRenderer.invoke('emby:items', parentId),

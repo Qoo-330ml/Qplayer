@@ -219,6 +219,22 @@ ipcMain.handle('emby:resume', async () => {
   return resume.Items || [];
 });
 
+ipcMain.handle('emby:recent', async () => {
+  const config = await readConfig();
+  const recentParams = new URLSearchParams({
+    Recursive: 'true',
+    MediaTypes: 'Video',
+    SortBy: 'DateCreated',
+    SortOrder: 'Descending',
+    Fields: 'Overview,ProductionYear,RunTimeTicks,CommunityRating,SeriesName,ParentIndexNumber,IndexNumber',
+    ImageTypeLimit: '1',
+    EnableImageTypes: 'Primary,Backdrop,Thumb',
+    Limit: '30'
+  });
+  const recent = await embyFetch(config, `/Users/${config.userId}/Items?${recentParams}`, { timeoutMs: 8000 });
+  return recent.Items || [];
+});
+
 ipcMain.handle('emby:latest', async (_event, library) => {
   const config = await readConfig();
   const latestParams = new URLSearchParams({

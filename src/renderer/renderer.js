@@ -248,13 +248,35 @@ function appendSection(title, items, variant) {
   homeView.append(node);
 }
 
+function appendEmptySection(title, message) {
+  const section = document.createElement('section');
+  section.className = 'media-section';
+
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+
+  const paragraph = document.createElement('p');
+  paragraph.className = 'empty section-empty';
+  paragraph.textContent = message;
+
+  section.append(heading, paragraph);
+  homeView.append(section);
+}
+
 function renderHome(data) {
   homeView.replaceChildren();
-  appendSection('我的媒体', data.libraries || [], 'library');
+  const libraries = data.libraries || [];
+  if (libraries.length) {
+    appendSection('我的媒体', libraries, 'library');
+  } else {
+    appendEmptySection('我的媒体', '当前账号没有返回可显示的媒体库。');
+  }
   updateServerSummary();
 }
 
 async function loadHomeSections(libraries, loadId) {
+  let latestCount = 0;
+
   window.qplayer.getResume()
     .then((items) => {
       if (loadId !== homeLoadId) return;
@@ -267,9 +289,16 @@ async function loadHomeSections(libraries, loadId) {
   await Promise.allSettled((libraries || []).map(async (library) => {
     const section = await window.qplayer.getLatest(library);
     if (loadId !== homeLoadId || !section.items?.length) return;
+    latestCount += section.items.length;
     appendSection(`最新${section.library.Name}`, section.items, 'poster');
     applySearchFilter();
   }));
+
+  if (loadId === homeLoadId && latestCount === 0) {
+    const recent = await window.qplayer.getRecent().catch(() => []);
+    appendSection('最近添加', recent || [], 'poster');
+    applySearchFilter();
+  }
 
   if (loadId === homeLoadId) setStatus(`已连接：${usernameInput.value || 'Emby'}`);
 }
