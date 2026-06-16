@@ -7,6 +7,7 @@ const playerPathInput = document.querySelector('#playerPath');
 const settingsOverlay = document.querySelector('#settingsOverlay');
 const homeView = document.querySelector('#homeView');
 const itemsEl = document.querySelector('#items');
+const detailView = document.querySelector('#detailView');
 const statusEl = document.querySelector('#status');
 const titleEl = document.querySelector('#currentTitle');
 const backButton = document.querySelector('#backButton');
@@ -21,6 +22,8 @@ const serverMeta = document.querySelector('#serverMeta');
 const searchInput = document.querySelector('#searchInput');
 const itemTemplate = document.querySelector('#itemTemplate');
 const sectionTemplate = document.querySelector('#sectionTemplate');
+
+document.body.dataset.platform = window.qplayer.platform;
 
 let currentLibraryId = '';
 let navigationStack = [];
@@ -70,6 +73,7 @@ function showHome() {
   titleEl.textContent = '首页';
   homeView.hidden = false;
   itemsEl.hidden = true;
+  detailView.hidden = true;
   updateNavigationControls();
 }
 
@@ -86,6 +90,7 @@ function showLibrary(name) {
   titleEl.textContent = name;
   homeView.hidden = true;
   itemsEl.hidden = false;
+  detailView.hidden = true;
   updateNavigationControls();
 }
 
@@ -124,6 +129,18 @@ function imageUrl(item, imageType = 'Primary', maxHeight = 480) {
   return `${serverUrl}/Items/${item.Id}/Images/Primary?${params}`;
 }
 
+function personImageUrl(person, maxHeight = 360) {
+  if (!person?.Id || !person.PrimaryImageTag) return '';
+  const serverUrl = serverUrlInput.value.replace(/\/+$/, '');
+  const params = new URLSearchParams({
+    maxHeight: String(maxHeight),
+    tag: person.PrimaryImageTag
+  });
+  const token = window.qplayerToken;
+  if (token) params.set('api_key', token);
+  return `${serverUrl}/Items/${person.Id}/Images/Primary?${params}`;
+}
+
 function bestImageUrl(item, variant) {
   if (variant === 'poster') return imageUrl(item, 'Primary', 560);
   return imageUrl(item, 'Thumb', 360) || imageUrl(item, 'Backdrop', 360) || imageUrl(item, 'Primary', 360);
@@ -153,13 +170,213 @@ async function openItem(item, pushHistory = true) {
   }
 
   if (!isPlayable) return;
-  setStatus(`正在调用 mpv：${item.Name}`);
+  await showDetail(item, pushHistory);
+}
+
+async function playItem(item) {
+  setStatus(`正在打开播放窗口：${item.Name}`);
   const result = await window.qplayer.play(item);
   if (result.mode === 'system') {
     setStatus(result.message ? `${result.message}，已用系统打开视频流` : 'mpv 启动失败，已用系统打开视频流');
     return;
   }
-  setStatus('已发送到 mpv');
+  setStatus('已打开 mpv 播放窗口');
+}
+
+function pushCurrentView() {
+  navigationStack.push(currentLibraryId ? { id: currentLibraryId, name: titleEl.textContent } : { home: true });
+}
+
+function showDetailView(title) {
+  titleEl.textContent = title || '详情';
+  homeView.hidden = true;
+  itemsEl.hidden = true;
+  detailView.hidden = false;
+  updateNavigationControls();
+}
+
+function addText(parent, tagName, text, className = '') {
+  if (!text) return null;
+  const node = document.createElement(tagName);
+  if (className) node.className = className;
+  node.textContent = text;
+  parent.append(node);
+  return node;
+}
+
+function detailMeta(item) {
+  const date = item.PremiereDate || item.DateCreated;
+  const year = item.ProductionYear || (date ? new Date(date).getFullYear() : '');
+  const rating = item.CommunityRating ? `★ ${Number(item.CommunityRating).toFixed(1)}` : '';
+  return [
+    rating,
+    year,
+    item.OfficialRating,
+    formatRuntime(item.RunTimeTicks),
+    item.Genres?.slice(0, 3).join(' / ')
+  ].filter(Boolean).join(' · ');
+}
+
+function mediaSourceTitle(source) {
+  const video = source.MediaStreams?.find((stream) => stream.Type === 'Video');
+  const audio = source.MediaStreams?.find((stream) => stream.Type === 'Audio');
+  const resolution = video?.Width && video?.Height ? `${video.Width}x${video.Height}` : source.Name;
+  return [resolution, video?.DisplayTitle, audio?.DisplayTitle].filter(Boolean).join(' · ');
+}
+
+function createInfoBlock(title, lines) {
+  const block = document.createElement('article');
+  block.className = 'info-block';
+  addText(block, 'h4', title);
+  for (const line of lines.filter(Boolean)) {
+    addText(block, 'p', line);
+  }
+  return block;
+}
+
+function renderExternalLinks(container, item) {
+  const links = [];
+  const ids = item.ProviderIds || {};
+  if (ids.Imdb) links.push(['IMDb', `https://www.imdb.com/title/${ids.Imdb}`]);
+  if (ids.Tmdb) links.push(['TheMovieDb', `https://www.themoviedb.org/${item.Type === 'Series' ? 'tv' : 'movie'}/${ids.Tmdb}`]);
+  if (ids.Tvdb) links.push(['TVDb', `https://thetvdb.com/dereferrer/series/${ids.Tvdb}`]);
+  for (const link of item.ExternalUrls || []) {
+    if (link.Name && link.Url) links.push([link.Name, link.Url]);
+  }
+  if (!links.length) return;
+
+  const section = document.createElement('section');
+  section.className = 'detail-section';
+  addText(section, 'h3', '外部链接');
+  const list = document.createElement('div');
+  list.className = 'external-links';
+  for (const [label, url] of links) {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.target = '_blank';
+    anchor.rel = 'noreferrer';
+    anchor.textContent = label;
+    list.append(anchor);
+  }
+  section.append(list);
+  container.append(section);
+}
+
+function renderPeople(container, people = []) {
+  const actors = people.filter((person) => person.Type === 'Actor').slice(0, 12);
+  if (!actors.length) return;
+
+  const section = document.createElement('section');
+  section.className = 'detail-section';
+  addText(section, 'h3', '演职人员');
+  const grid = document.createElement('div');
+  grid.className = 'people-grid';
+
+  for (const person of actors) {
+    const card = document.createElement('article');
+    card.className = 'person-card';
+    const photo = document.createElement('div');
+    photo.className = 'person-photo';
+    const url = personImageUrl(person);
+    if (url) photo.style.backgroundImage = `url("${url}")`;
+    else photo.textContent = person.Name?.slice(0, 1) || '?';
+    const name = addText(card, 'strong', person.Name);
+    const role = addText(card, 'span', person.Role);
+    card.prepend(photo);
+    if (!name && !role) addText(card, 'strong', '未知演员');
+    grid.append(card);
+  }
+
+  section.append(grid);
+  container.append(section);
+}
+
+function renderMediaInfo(container, item) {
+  const sources = item.MediaSources || [];
+  if (!sources.length) return;
+
+  const section = document.createElement('section');
+  section.className = 'detail-section';
+  addText(section, 'h3', '媒体信息');
+  const summary = sources[0];
+  addText(section, 'p', [
+    mediaSourceTitle(summary),
+    summary.Container?.toUpperCase(),
+    summary.Size ? `${(summary.Size / 1024 / 1024 / 1024).toFixed(2)} GB` : '',
+    summary.Bitrate ? `${(summary.Bitrate / 1000000).toFixed(1)} Mbps` : ''
+  ].filter(Boolean).join(' · '), 'detail-muted');
+
+  const rail = document.createElement('div');
+  rail.className = 'stream-rail';
+  for (const source of sources) {
+    for (const stream of source.MediaStreams || []) {
+      const lines = [
+        `类型：${stream.Type}`,
+        stream.DisplayTitle && `显示标题：${stream.DisplayTitle}`,
+        stream.Codec && `编码器：${stream.Codec}`,
+        stream.Language && `语言：${stream.Language}`,
+        stream.Width && stream.Height && `尺寸：${stream.Width}x${stream.Height}`,
+        stream.BitRate && `码率：${(stream.BitRate / 1000).toFixed(0)} Kbps`,
+        stream.ColorSpace && `色彩空间：${stream.ColorSpace}`,
+        stream.VideoRange && `动态范围：${stream.VideoRange}`,
+        stream.IsDefault !== undefined && `默认：${stream.IsDefault}`,
+        stream.IsExternal !== undefined && `外部：${stream.IsExternal}`
+      ];
+      rail.append(createInfoBlock(stream.DisplayTitle || stream.Type, lines));
+    }
+  }
+  section.append(rail);
+  container.append(section);
+}
+
+async function showDetail(item, pushHistory = true) {
+  if (pushHistory) pushCurrentView();
+  updateNavigationControls();
+  showDetailView(item.Name);
+  detailView.replaceChildren();
+  renderError(detailView, '正在读取详情...');
+  setStatus('正在读取详情...');
+
+  try {
+    const detail = await window.qplayer.getItem(item.Id);
+    detailView.replaceChildren();
+    showDetailView(detail.Name || item.Name);
+
+    const header = document.createElement('section');
+    header.className = 'detail-hero';
+    const backdrop = imageUrl(detail, 'Backdrop', 1200) || imageUrl(detail, 'Thumb', 1200) || imageUrl(detail, 'Primary', 1200);
+    if (backdrop) header.style.backgroundImage = `url("${backdrop}")`;
+
+    const body = document.createElement('div');
+    body.className = 'detail-hero-body';
+    addText(body, 'h2', detail.Name || item.Name);
+    addText(body, 'p', detailMeta(detail), 'detail-meta');
+    addText(body, 'p', detail.Overview, 'detail-overview');
+    const playButton = document.createElement('button');
+    playButton.type = 'button';
+    playButton.textContent = playbackPercent(detail) ? '继续播放' : '播放';
+    playButton.addEventListener('click', () => playItem(detail));
+    body.append(playButton);
+    header.append(body);
+    detailView.append(header);
+
+    const studios = detail.Studios?.map((studio) => studio.Name).filter(Boolean).join('，');
+    if (studios) {
+      const section = document.createElement('section');
+      section.className = 'detail-section';
+      addText(section, 'h3', '工作室');
+      addText(section, 'p', studios, 'detail-muted');
+      detailView.append(section);
+    }
+
+    renderExternalLinks(detailView, detail);
+    renderPeople(detailView, detail.People || []);
+    renderMediaInfo(detailView, detail);
+    setStatus('详情已加载');
+  } catch (error) {
+    renderError(detailView, cleanErrorMessage(error, '详情读取失败。'));
+    setStatus('详情读取失败');
+  }
 }
 
 function createCard(item, variant = 'poster') {
@@ -191,7 +408,7 @@ function createCard(item, variant = 'poster') {
 
   heading.textContent = item.Name;
   meta.textContent = itemMeta(item);
-  button.textContent = isContainer ? '打开' : '播放';
+  button.textContent = isContainer ? '打开' : '详情';
   button.disabled = !isContainer && !isPlayable;
   button.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -229,7 +446,7 @@ function createHero(item) {
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = PLAYABLE_TYPES.has(item.Type) ? '继续播放' : '打开';
-  button.addEventListener('click', () => openItem(item));
+  button.addEventListener('click', () => PLAYABLE_TYPES.has(item.Type) ? playItem(item) : openItem(item));
 
   body.append(eyebrow, heading, meta, button);
   hero.append(body);

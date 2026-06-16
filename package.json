@@ -32,6 +32,10 @@
       {
         "from": "vendor/mpv",
         "to": "mpv"
+      },
+      {
+        "from": "build/icon.icns",
+        "to": "qplayer-icon.icns"
       }
     ],
     "mac": {

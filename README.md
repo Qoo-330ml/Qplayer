@@ -7,7 +7,7 @@ Qplayer 是一个桌面端 Emby 播放器原型：界面使用 Electron，一套
 | 能力 | 当前实现 |
 | --- | --- |
 | 跨平台桌面 | Electron，提供 macOS / Windows 打包脚本 |
-| 播放器 | 优先调用内置 `mpv`，默认参数包含 `--hwdec=auto-safe` |
+| 播放器 | 优先调用内置 `mpv`，默认参数包含 `--hwdec=auto-safe`，并使用 Qplayer 专用 OSC 控件样式 |
 | Emby | 登录、保存 token、读取媒体库、读取影片/剧集、播放视频流 |
 | ExoPlayer | 暂未实现；它更适合 Android 端，Win/mac 版本使用 mpv |
 
@@ -18,7 +18,7 @@ npm install
 npm start
 ```
 
-开发运行会优先使用 `vendor/mpv` 里的内置 `mpv`。如果当前平台没有内置文件，再安装 `mpv`，或在登录表单里填写 `mpv` 的完整路径。
+开发运行会优先使用 `vendor/mpv` 里的内置 `mpv`。如果当前平台没有内置文件，再安装 `mpv`，或在登录表单里填写 `mpv` 的完整路径。播放时会在应用数据目录生成独立的 `mpv-profile`，只影响 Qplayer 启动的播放窗口，不会覆盖用户自己的 mpv 配置。
 
 ## 打包
 
