@@ -69,11 +69,21 @@ async function fileExists(filePath) {
 }
 
 async function bundledMpvPath() {
-  if (process.platform !== 'darwin') return '';
+  const platformPaths = {
+    darwin: {
+      dir: process.arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64',
+      executable: path.join('mpv.app', 'Contents', 'MacOS', 'mpv')
+    },
+    win32: {
+      dir: process.arch === 'arm64' ? 'win-arm64' : 'win-x64',
+      executable: 'mpv.exe'
+    }
+  };
+  const current = platformPaths[process.platform];
+  if (!current) return '';
 
-  const arch = process.arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
-  const packagedPath = path.join(process.resourcesPath, 'mpv', arch, 'mpv.app', 'Contents', 'MacOS', 'mpv');
-  const devPath = path.join(__dirname, '..', 'vendor', 'mpv', arch, 'mpv.app', 'Contents', 'MacOS', 'mpv');
+  const packagedPath = path.join(process.resourcesPath, 'mpv', current.dir, current.executable);
+  const devPath = path.join(__dirname, '..', 'vendor', 'mpv', current.dir, current.executable);
 
   if (app.isPackaged && await fileExists(packagedPath)) return packagedPath;
   if (await fileExists(devPath)) return devPath;
@@ -138,6 +148,7 @@ async function createWindow() {
     minWidth: 900,
     minHeight: 620,
     title: 'Qplayer',
+    icon: path.join(__dirname, 'renderer', 'icons.png'),
     backgroundColor: '#f6f9fb',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

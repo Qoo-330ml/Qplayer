@@ -23,6 +23,7 @@
   "build": {
     "appId": "com.qplayer.desktop",
     "productName": "Qplayer",
+    "icon": "build/icon.png",
     "files": [
       "src/**/*",
       "package.json"
@@ -35,11 +36,13 @@
     ],
     "mac": {
       "category": "public.app-category.video",
+      "icon": "build/icon.icns",
       "target": [
         "dmg"
       ]
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis"
       ]
